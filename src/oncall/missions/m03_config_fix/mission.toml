@@ -1,0 +1,70 @@
+id = "config-fix"
+title = "置換ひとつで直るはずだった"
+level = 3
+host = "prod-app-03"
+workdir = "app"
+par_time = 600
+par_commands = 14
+# クリアすると図鑑に登録されるコマンド (commands.toml の名前)
+commands = ["sed", "diff"]
+
+ticket = """
+{{incident_id}}   重大度 SEV2   検知 {{detected_at}}
+デプロイ担当 → オンコール担当(あなた)
+
+データベース移行後のデプロイで、古い設定のまま配ってしまいました。
+アプリが旧データベースにつなぎに行き、エラーになっています。
+
+■ 依頼
+  ~/app/conf 以下のすべての .conf (サブディレクトリを含む) を
+  次のとおり修正してください。
+
+  1. ホスト名 db-old.internal を、すべて db-new.internal に置き換える
+  2. 「timeout = 数値」の行を、すべて「timeout = 30」にする
+     (connect_timeout など、別のキーは変えない)
+  3. 「debug = true」の行を削除する (コメント行は残す)
+
+■ 資料
+  ~/app/conf.deployed   デプロイ直後のコピー。壊したときは
+                        cp -r conf.deployed/. conf/ で戻せます
+"""
+
+[[hints]]
+text = """
+まず直す場所を確かめましょう。`grep -rn 'db-old' conf` で、該当する行がファイル名と行番号つきで出ます。
+
+置換は `sed 's/置換前/置換後/' ファイル` です。このままだと結果を画面に出すだけで、ファイルは変わりません。画面で確かめてから、`-i` を付けてファイルを書き換えます。
+"""
+
+[[hints]]
+text = """
+`s/A/B/` は、各行で最初に見つかった 1 か所しか置き換えません。行内のすべてを置き換えるには末尾に `g` を付けます。
+
+パターンは正規表現です。`.` は任意の 1 文字に一致するので、文字としてのピリオドは `\\.` と書きます。行の先頭は `^`、行の末尾は `$` で表せます。`s/^timeout = [0-9]*$/timeout = 30/` なら、行全体が「timeout = 数値」の行だけが対象になります。
+"""
+
+[[hints]]
+text = """
+行を削除するのは `sed '/パターン/d'` です。行全体で一致させるなら `/^debug = true$/d` と書きます。
+
+複数の修正は `-e` を並べて 1 回で実行できます。サブディレクトリも含めて渡すには `find conf -name '*.conf' -exec sed -i -e '…' -e '…' {} +` の形が使えます。直したあとは `diff -r conf.deployed conf` で、意図した行だけが変わったか確かめましょう。
+"""
+
+[debrief]
+solution = '''
+find conf -name '*.conf' -exec sed -i -e 's/db-old\.internal/db-new.internal/g' -e 's/^timeout = [0-9]*$/timeout = 30/' -e '/^debug = true$/d' {} +
+'''
+
+explanation = """
+3 つの修正を `-e` で並べ、`find` で集めたすべての `.conf` に一度で適用しています。
+
+1. `s/db-old\\.internal/db-new.internal/g`: 末尾の `g` で、行内のすべての一致を置き換えます。`g` がないと、レプリカを 2 台並べた行で 2 台目が古いまま残ります。`\\.` はピリオドそのものを表します。エスケープしないと、よく似た別のホスト `db-old-internal.example.com` まで書き換わります。
+2. `s/^timeout = [0-9]*$/timeout = 30/`: `^` と `$` で行全体を指定しているので、`connect_timeout` や `read_timeout`、コメントの `# timeout` には一致しません。
+3. `/^debug = true$/d`: 一致した行を削除します。こちらも行全体で指定することで、「debug = true は本番では禁止」というコメントを残せます。
+
+**`sed -i` は元のファイルを直接書き換えます。**まず `-i` なしで結果を画面に出して確かめ、書き換えたあとは `diff -r conf.deployed conf` で差分を見る、という手順を踏むと、巻き込み事故に気づけます。`sed -i.bak` と書けば、書き換える前のファイルを `.bak` として残せます。
+"""
+
+[[debrief.alternatives]]
+command = "sed -i 's/db-old\\.internal/db-new.internal/g; s/^timeout = .*/timeout = 30/; /^debug = true/d' conf/*.conf conf/services/*.conf"
+note = "複数の修正は `;` で区切って 1 つの引用符の中にも書けます。ファイルはシェルのワイルドカードで渡しています。階層が決まっているならこれで十分ですが、深さが分からないときは `find` のほうが取りこぼしません。"

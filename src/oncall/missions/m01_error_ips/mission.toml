@@ -1,0 +1,75 @@
+id = "error-ips"
+title = "深夜の 500 祭り"
+level = 2
+host = "prod-api-01"
+workdir = "incident"
+par_time = 420
+par_commands = 12
+# クリアすると図鑑に登録されるコマンド (commands.toml の名前)
+commands = ["grep", "awk", "sort", "uniq", "head"]
+
+ticket = """
+{{incident_id}}   重大度 SEV2   検知 {{detected_at}}
+監視システム → オンコール担当(あなた)
+
+api-gateway の 500 エラー率が閾値を超えました。
+特定のクライアントが異常なリクエストを送り続けている可能性があります。
+
+■ 依頼
+  アクセスログ ~/incident/access.log を調べ、
+  ステータスコード 500 を返されたリクエストが多い送信元 IP を
+  件数の多い順に上位 3 件、~/incident/answer.txt に保存してください。
+  (1 行に 1 つの IP)
+
+■ 資料
+  ~/incident/nginx.conf   ログの書式 (log_format)
+"""
+
+[[hints]]
+text = """
+まずログの形を確かめましょう。`head -3 access.log` で先頭を見て、`nginx.conf` の `log_format` と見比べます。
+
+空白で区切ったとき、ステータスコード(`$status`)は左から何番目の列になるでしょうか。
+"""
+
+[[hints]]
+text = """
+`grep 500 access.log` では正しく数えられません。「500」という文字は、レスポンスサイズや URL にも現れるからです。
+
+列を指定して絞り込むには `awk` が向いています。ステータスコードは 9 列目なので、`awk '$9 == 500' access.log` で 500 の行だけを取り出せます。
+"""
+
+[[hints]]
+text = """
+「種類ごとに数えて多い順に並べる」定番の形があります。
+
+`awk '$9 == 500 {print $1}' access.log | sort | uniq -c | sort -rn | head -3`
+
+これで件数と IP が出ます。あとは IP だけを `answer.txt` に保存するだけです(`>` でファイルに書き出せます)。
+"""
+
+[debrief]
+solution = "awk '$9 == 500 {print $1}' access.log | sort | uniq -c | sort -rn | head -3 | awk '{print $2}' > answer.txt"
+
+explanation = """
+パイプでつないだ各段の役割は次のとおりです。
+
+1. `awk '$9 == 500 {print $1}'`: 9 列目(ステータスコード)が 500 の行だけを選び、1 列目(送信元 IP)を出力します。
+2. `sort`: 同じ IP を隣り合わせに並べます。`uniq` は隣り合う行しかまとめないので、先に並べ替えが必要です。
+3. `uniq -c`: 同じ行をまとめ、先頭に件数を付けます。
+4. `sort -rn`: 件数を数値として(`-n`)大きい順(`-r`)に並べます。
+5. `head -3`: 上位 3 行だけを残します。
+6. `awk '{print $2}' > answer.txt`: 件数の列を捨てて IP だけをファイルに保存します。
+
+**なぜ grep 500 ではだめなのか。**このログには、レスポンスサイズがちょうど 500 バイトの正常なリクエストや、URL に `/500` を含むリクエストが大量に混ざっていました。文字列として「500」を探すと、それらも一緒に数えてしまいます。「何列目の値か」を指定して絞り込むのが、ログ調査の基本です。
+
+`sort | uniq -c | sort -rn | head` は、ログから「多い順ランキング」を作る定番の組み合わせです。障害対応で何度も使うので、手が覚えるまで打っておく価値があります。
+"""
+
+[[debrief.alternatives]]
+command = """grep '" 500 ' access.log | cut -d' ' -f1 | sort | uniq -c | sort -rn | head -3 | awk '{print $2}' > answer.txt"""
+note = "`grep` でも、リクエスト行を閉じる `\"` の直後という位置まで含めて指定すれば、ステータスコードの 500 だけに絞れます。`cut -d' ' -f1` は空白区切りの 1 列目を取り出します。"
+
+[[debrief.alternatives]]
+command = "awk '$9 == 500 {n[$1]++} END {for (ip in n) print n[ip], ip}' access.log | sort -rn | head -3 | cut -d' ' -f2 > answer.txt"
+note = "`awk` の連想配列で IP ごとの件数を数える方法です。`sort | uniq -c` の 2 段を `awk` の中で済ませられ、大きなログでは並べ替えが 1 回で済む分だけ速くなります。"

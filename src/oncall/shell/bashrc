@@ -1,0 +1,62 @@
+# oncall ミッション用シェルの設定。ゲームが起動時に読み込む。
+
+HISTFILE=/dev/null
+HISTCONTROL=
+HISTSIZE=5000
+shopt -s checkwinsize cmdhist
+
+# プロンプトと入力中の行は、ゲームが画面下の入力欄に描く。シェル自身は何も表示しない
+# (bash は行編集なしで起動され、確定した 1 行だけを受け取る)
+PS1=
+
+alias ls='ls --color=auto'
+alias ll='ls -l'
+alias grep='grep --color=auto'
+export PAGER=less LESS=-R
+
+# ゲーム本体は端末への出力を中継しながら、次の 3 つの目印を読み取って進行を判断する。
+# 目印は端末には表示されない制御文字列(OSC)で、ゲームが取り除いてから画面に出す。
+#   開始: プレイヤーが打った 1 行の実行が始まる直前
+#   終了: 実行が終わり、次の行を待つ直前(終了コード・現在地・打った行・入力欄に出す現在地を添える)
+#   続き: 引用符が閉じていないなど、行の続きを待つとき
+#
+# 行を待つあいだは端末のエコーを切る(打った文字は入力欄に出ているので、二重に出さない)。
+# 実行中は戻すので、cat のように入力を読むコマンドでは打った文字がそのまま見える。
+PS0='$(stty echo 2>/dev/null)'$'\e]7770;S\a'
+PS2=$'\e]7770;C\a'
+__oncall_report() {
+    local status=$?
+    stty -echo 2>/dev/null
+    printf '\e]7770;E;%s;%s;%s;%s\a' "$status" \
+        "$(printf %s "$PWD" | base64 -w0)" \
+        "$(HISTTIMEFORMAT='' history 1 | sed '1s/^ *[0-9]* *//' | base64 -w0)" \
+        "$(printf %s "$(dirs +0)" | base64 -w0)"
+}
+PROMPT_COMMAND=__oncall_report
+
+# 打ち間違えたときに Ubuntu が出す「sudo apt update を…」という案内は、ここでは混乱のもとなので止める
+unset -f command_not_found_handle
+
+# ゲーム本体が反応する合言葉。シェルとしては何もしない(ゲームが、打たれた行を見て処理する)。
+# どれも Linux のコマンドと重ならない名前にしてある
+mission() { :; }
+hint() { :; }
+zukan() { :; }
+title() { :; }
+check() {
+    # ミッションによっては、判定の前にシェルの中で動作確認を行う(作ったスクリプトの実行など)
+    if [ -f "$ONCALL_RUN/precheck.bash" ]; then
+        ( trap - DEBUG; . "$ONCALL_RUN/precheck.bash" ) > /dev/null 2>&1 < /dev/null
+    fi
+}
+
+# ミッションが用意した起動時の準備(バックグラウンドで動かすプロセスなど)
+if [ -f "$ONCALL_RUN/setup.bash" ]; then
+    . "$ONCALL_RUN/setup.bash"
+fi
+
+if [ "$ONCALL_MODE" = guard ]; then
+    . "$ONCALL_RUN/guard.bash"
+fi
+
+cd "$ONCALL_WORKDIR" 2>/dev/null || cd

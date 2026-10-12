@@ -1,0 +1,669 @@
+# コマンド図鑑の内容。ミッションの mission.toml からは名前で参照する。
+# 並び順がそのまま図鑑の並び順になる。
+
+[grep]
+summary = "パターンに一致する行を取り出す"
+syntax = "grep [オプション] 'パターン' ファイル..."
+description = """
+ファイルや標準入力から、パターンを含む行だけを出力します。ログ調査で最初に手が伸びるコマンドです。
+
+パターンは「行のどこかに現れる文字列」として探されます。特定の列の値で絞り込みたいときは、前後の文字まで含めて指定するか、`awk` を使います。
+"""
+
+[[grep.options]]
+flag = "-i"
+description = "大文字と小文字を区別しない"
+
+[[grep.options]]
+flag = "-v"
+description = "一致しない行を出力する"
+
+[[grep.options]]
+flag = "-c"
+description = "一致した行の数だけを出力する"
+
+[[grep.options]]
+flag = "-n"
+description = "行番号を付ける"
+
+[[grep.options]]
+flag = "-r"
+description = "ディレクトリの中を再帰的に探す"
+
+[[grep.options]]
+flag = "-E"
+description = "拡張正規表現を使う (a|b や + が使える)"
+
+[[grep.examples]]
+command = "grep -c ERROR app.log"
+note = "ERROR を含む行の数を数える"
+
+[[grep.examples]]
+command = """grep '" 500 ' access.log"""
+note = "直前の `\"` まで含めて指定し、ステータスコードの 500 だけに絞る"
+
+[[grep.examples]]
+command = "grep -v /healthz access.log"
+note = "ヘルスチェックの行を除外する"
+
+
+[awk]
+summary = "行を列に分けて、条件に合う行や列を取り出す"
+syntax = "awk '条件 {処理}' ファイル..."
+description = """
+各行を空白で列に分け、`$1`、`$2` … として扱えるようにします。`$0` は行全体、`NF` は列の数、`NR` は行番号です。
+
+条件だけを書くと一致した行をそのまま出力し、処理だけを書くと全行に適用します。`END {…}` は全行を読み終えたあとに 1 回だけ実行されます。
+"""
+
+[[awk.options]]
+flag = "-F,"
+description = "区切り文字を指定する (この例ではカンマ)"
+
+[[awk.options]]
+flag = "-v 名前=値"
+description = "awk の変数に値を渡す"
+
+[[awk.examples]]
+command = "awk '$9 == 500 {print $1}' access.log"
+note = "9 列目が 500 の行について 1 列目を出力する"
+
+[[awk.examples]]
+command = "awk '{sum += $10} END {print sum}' access.log"
+note = "10 列目を合計する"
+
+[[awk.examples]]
+command = "awk '{n[$1]++} END {for (k in n) print n[k], k}' access.log"
+note = "連想配列で 1 列目の値ごとに件数を数える"
+
+
+[sort]
+summary = "行を並べ替える"
+syntax = "sort [オプション] [ファイル...]"
+description = """
+行を並べ替えて出力します。何も指定しないと文字列としての辞書順になるので、数値を並べるときは `-n` が必要です(付けないと 10 が 9 より前に来ます)。
+
+`uniq` の前段として使うことが多いコマンドです。
+"""
+
+[[sort.options]]
+flag = "-n"
+description = "数値として比べる"
+
+[[sort.options]]
+flag = "-r"
+description = "逆順 (大きい順) にする"
+
+[[sort.options]]
+flag = "-k 2"
+description = "2 列目以降をキーにして並べる"
+
+[[sort.options]]
+flag = "-t,"
+description = "列の区切り文字を指定する"
+
+[[sort.options]]
+flag = "-u"
+description = "重複した行を 1 つにまとめる"
+
+[[sort.examples]]
+command = "sort -rn counts.txt"
+note = "数値の大きい順に並べる"
+
+[[sort.examples]]
+command = "sort -t, -k3 -n data.csv"
+note = "CSV を 3 列目の数値順に並べる"
+
+
+[uniq]
+summary = "隣り合う同じ行をまとめる"
+syntax = "uniq [オプション] [ファイル]"
+description = """
+連続して並んだ同じ行を 1 行にまとめます。離れた位置にある同じ行はまとめないので、ふつうは先に `sort` で並べ替えます。
+
+`sort | uniq -c | sort -rn` は「種類ごとに数えて多い順に並べる」定番の組み合わせです。
+"""
+
+[[uniq.options]]
+flag = "-c"
+description = "各行の先頭に件数を付ける"
+
+[[uniq.options]]
+flag = "-d"
+description = "重複している行だけを出力する"
+
+[[uniq.options]]
+flag = "-u"
+description = "重複していない行だけを出力する"
+
+[[uniq.examples]]
+command = "cut -d' ' -f1 access.log | sort | uniq -c | sort -rn"
+note = "1 列目の値を、出現回数の多い順に並べる"
+
+
+[head]
+summary = "先頭の数行だけを表示する"
+syntax = "head [オプション] [ファイル...]"
+description = """
+先頭の 10 行(または指定した行数)だけを出力します。大きなファイルの形を確かめるときや、並べ替えた結果の上位だけを取り出すときに使います。
+
+末尾を見たいときは `tail` を使います。
+"""
+
+[[head.options]]
+flag = "-n 3"
+description = "先頭 3 行を出力する (-3 とも書ける)"
+
+[[head.options]]
+flag = "-c 100"
+description = "先頭 100 バイトを出力する"
+
+[[head.examples]]
+command = "head -3 access.log"
+note = "ログの先頭 3 行を見て書式を確かめる"
+
+[[head.examples]]
+command = "sort -rn counts.txt | head -5"
+note = "上位 5 件を取り出す"
+
+
+[find]
+summary = "条件に合うファイルを探す"
+syntax = "find 探す場所 [条件...] [アクション]"
+description = """
+指定したディレクトリの下を、サブディレクトリも含めてたどり、条件に合うファイルを出力します。条件を並べて書くと、すべてを満たすものだけに絞り込みます。
+
+`-delete` や `-exec` を付けると、見つけたファイルに対して処理を実行します。先にアクションなしで一覧を出して確かめてから付けるのが安全です。
+"""
+
+[[find.options]]
+flag = "-name '*.log'"
+description = "名前がパターンに一致するもの (引用符で囲む)"
+
+[[find.options]]
+flag = "-type f"
+description = "通常のファイルだけ (d ならディレクトリ)"
+
+[[find.options]]
+flag = "-size +10M"
+description = "10MB より大きいもの (-10M なら小さいもの)"
+
+[[find.options]]
+flag = "-mtime +7"
+description = "最後の更新が 7 日より前のもの (-7 なら 7 日以内)"
+
+[[find.options]]
+flag = "-perm 600"
+description = "権限がちょうど 600 のもの (! を前に置くと否定)"
+
+[[find.options]]
+flag = "-exec コマンド {} +"
+description = "見つかったファイルをまとめてコマンドに渡す"
+
+[[find.options]]
+flag = "-delete"
+description = "見つかったファイルを削除する"
+
+[[find.examples]]
+command = "find . -type f -size +10M -mtime +7"
+note = "10MB を超え、7 日より前から更新されていないファイルを一覧する"
+
+[[find.examples]]
+command = "find . -name '*.pem' -exec chmod 600 {} +"
+note = "`.pem` で終わるファイルの権限をまとめて 600 にする"
+
+
+[du]
+summary = "ディスクの使用量を調べる"
+syntax = "du [オプション] [ファイルやディレクトリ...]"
+description = """
+ファイルやディレクトリが使っているディスクの量を出力します。ディレクトリを指定すると、その中身の合計を表示します。
+
+ディスクがいっぱいになったとき、どこが容量を使っているかを上の階層から順にたどるのに使います。
+"""
+
+[[du.options]]
+flag = "-s"
+description = "指定したものごとの合計だけを出す"
+
+[[du.options]]
+flag = "-h"
+description = "K、M、G を付けた読みやすい単位で出す"
+
+[[du.options]]
+flag = "-a"
+description = "ディレクトリだけでなくファイルも 1 つずつ出す"
+
+[[du.examples]]
+command = "du -sh *"
+note = "いまの場所にあるものそれぞれの使用量を出す"
+
+[[du.examples]]
+command = "du -s * | sort -rn | head -5"
+note = "使用量の多い順に上位 5 つを出す"
+
+
+[chmod]
+summary = "ファイルの権限を変える"
+syntax = "chmod 権限 ファイル..."
+description = """
+ファイルやディレクトリを誰が読み・書き・実行できるかを変えます。
+
+数字で指定するときは 3 桁で、左から所有者・グループ・その他の順です。各桁は、読み 4、書き 2、実行 1 の合計です。600 は「所有者だけが読み書きできる」、755 は「所有者は何でもでき、ほかの人は読みと実行だけできる」を表します。
+"""
+
+[[chmod.options]]
+flag = "+x"
+description = "実行権限を付ける (u+x なら所有者だけに付ける)"
+
+[[chmod.options]]
+flag = "go-rwx"
+description = "グループとその他から、すべての権限を外す"
+
+[[chmod.options]]
+flag = "-R"
+description = "ディレクトリの中身にもまとめて適用する (巻き込みに注意)"
+
+[[chmod.examples]]
+command = "chmod 600 deploy.pem"
+note = "秘密鍵を所有者だけが読み書きできるようにする"
+
+[[chmod.examples]]
+command = "chmod +x errwatch.sh"
+note = "スクリプトを直接実行できるようにする"
+
+
+[sed]
+summary = "テキストを置換・削除して書き換える"
+syntax = "sed [オプション] '命令' ファイル..."
+description = """
+各行に命令を適用した結果を出力します。いちばんよく使う命令は置換の `s/置換前/置換後/` です。何も指定しなければ結果を画面に出すだけで、元のファイルは変わりません。
+
+置換前の部分は正規表現です。`.` は任意の 1 文字、`^` は行頭、`$` は行末を表し、文字としてのピリオドは `\\.` と書きます。
+"""
+
+[[sed.options]]
+flag = "-i"
+description = "結果を画面に出す代わりに、ファイルを直接書き換える"
+
+[[sed.options]]
+flag = "-i.bak"
+description = "書き換える前のファイルを .bak として残す"
+
+[[sed.options]]
+flag = "-e '命令'"
+description = "命令を複数並べる"
+
+[[sed.options]]
+flag = "-n"
+description = "自動の出力を止める (p 命令と組み合わせる)"
+
+[[sed.examples]]
+command = "sed 's/db-old\\.internal/db-new.internal/g' db.conf"
+note = "行内のすべての一致を置き換える (末尾の g がないと各行の最初の 1 つだけ)"
+
+[[sed.examples]]
+command = "sed -i '/^debug = true$/d' app.conf"
+note = "パターンに一致する行を削除して、ファイルを書き換える"
+
+[[sed.examples]]
+command = "sed -n '10,20p' app.log"
+note = "10 行目から 20 行目だけを表示する"
+
+
+[diff]
+summary = "2 つのファイルの違いを表示する"
+syntax = "diff [オプション] 元 新"
+description = """
+2 つのファイルを比べ、違う行を出力します。`<` で始まる行は 1 つ目だけにある行、`>` で始まる行は 2 つ目だけにある行です。違いがなければ何も出力しません。
+
+設定を書き換えたあと、意図した行だけが変わったかを確かめるのに使います。
+"""
+
+[[diff.options]]
+flag = "-u"
+description = "前後の行も付けた、読みやすい形式で出す"
+
+[[diff.options]]
+flag = "-r"
+description = "ディレクトリどうしを、中のファイルごとに比べる"
+
+[[diff.options]]
+flag = "-q"
+description = "違いの中身は出さず、違うファイルの名前だけ出す"
+
+[[diff.examples]]
+command = "diff -r conf.deployed conf"
+note = "デプロイ直後の状態から何が変わったかを、ディレクトリごと確かめる"
+
+[[diff.examples]]
+command = "diff -u app.conf.bak app.conf"
+note = "書き換え前後の違いを、前後の行つきで見る"
+
+
+[xargs]
+summary = "入力の一覧を、別のコマンドの引数として渡す"
+syntax = "コマンド | xargs [オプション] 実行するコマンド"
+description = """
+標準入力から受け取った項目を、指定したコマンドの末尾に引数として並べて実行します。「一覧を作るコマンド」と「一覧を処理するコマンド」をつなぐ役目です。
+
+何も指定しないと、空白・改行・引用符で入力を区切ります。ファイル名を渡すときは、`-0` か `-d '\\n'` で区切りを明示しないと、空白を含む名前を取りこぼします。
+"""
+
+[[xargs.options]]
+flag = "-0"
+description = "ヌル文字で区切る (grep -Z や find -print0 と組み合わせる)"
+
+[[xargs.options]]
+flag = "-d '\\n'"
+description = "改行だけで区切る"
+
+[[xargs.options]]
+flag = "-I {}"
+description = "1 項目ごとに実行し、{} の位置に項目を埋め込む"
+
+[[xargs.options]]
+flag = "-n 1"
+description = "1 回の実行に渡す項目を 1 つにする"
+
+[[xargs.options]]
+flag = "-r"
+description = "入力が空のときは何も実行しない"
+
+[[xargs.examples]]
+command = "grep -rlZ 'checksum=INVALID' --include='*.csv' uploads | xargs -0 mv -t quarantine"
+note = "文字列を含む CSV を、名前に空白があっても安全にまとめて移動する"
+
+[[xargs.examples]]
+command = "find . -name '*.log' -print0 | xargs -0 grep -c ERROR"
+note = "見つけたログそれぞれの ERROR 行数を数える"
+
+
+[mv]
+summary = "ファイルを移動する、名前を変える"
+syntax = "mv [オプション] 元... 移動先"
+description = """
+ファイルやディレクトリを別の場所へ移動します。同じディレクトリの中で使えば、名前の変更になります。
+
+移動先に同じ名前のファイルがあると、確認なしで上書きします。
+"""
+
+[[mv.options]]
+flag = "-t ディレクトリ"
+description = "移動先を先に書く (xargs と組み合わせやすい)"
+
+[[mv.options]]
+flag = "-n"
+description = "移動先に同じ名前があれば上書きしない"
+
+[[mv.options]]
+flag = "-v"
+description = "移動したファイルを表示する"
+
+[[mv.examples]]
+command = "mv -t quarantine a.csv b.csv"
+note = "複数のファイルを quarantine へ移動する"
+
+[[mv.examples]]
+command = "mv app.conf app.conf.bak"
+note = "名前を変える"
+
+
+[ps]
+summary = "動いているプロセスを一覧する"
+syntax = "ps [オプション]"
+description = """
+いま動いているプロセスを表示します。何も指定しないと自分の端末のプロセスしか出ないので、ふつうは `-ef` か `aux` を付けて全体を見ます。
+
+`ps -ef` の出力は、左から 2 列目が PID(プロセスの番号)、右端が起動時のコマンドです。
+"""
+
+[[ps.options]]
+flag = "-ef"
+description = "すべてのプロセスを、起動時のコマンドつきで出す"
+
+[[ps.options]]
+flag = "aux"
+description = "すべてのプロセスを、CPU とメモリの使用率つきで出す"
+
+[[ps.options]]
+flag = "-p PID"
+description = "指定した PID のプロセスだけを出す"
+
+[[ps.options]]
+flag = "--forest"
+description = "親子関係を木の形で出す"
+
+[[ps.examples]]
+command = "ps -ef | grep queue-worker"
+note = "コマンドに queue-worker を含むプロセスを探す"
+
+[[ps.examples]]
+command = "ps aux --sort=-%cpu | head -5"
+note = "CPU を多く使っている順に上位を出す"
+
+
+[kill]
+summary = "プロセスに終了などの合図を送る"
+syntax = "kill [-シグナル] PID..."
+description = """
+PID で指定したプロセスにシグナル(合図)を送ります。何も指定しないと SIGTERM を送ります。これは「終了してください」という依頼で、プロセスは後始末をしてから終わることも、無視することもできます。
+
+`-9`(SIGKILL)は無視できない強制終了です。後始末の機会を与えないので、まず SIGTERM を試し、効かないときにだけ使います。
+"""
+
+[[kill.options]]
+flag = "-15 / -TERM"
+description = "終了を依頼する (何も指定しないときと同じ)"
+
+[[kill.options]]
+flag = "-9 / -KILL"
+description = "強制的に終了させる"
+
+[[kill.options]]
+flag = "-l"
+description = "シグナルの一覧を出す"
+
+[[kill.examples]]
+command = "kill 4821"
+note = "PID 4821 のプロセスに終了を依頼する"
+
+[[kill.examples]]
+command = "kill -9 4821"
+note = "依頼を無視するプロセスを強制的に終了させる"
+
+
+[tail]
+summary = "末尾の数行を表示する、追記を追いかける"
+syntax = "tail [オプション] [ファイル...]"
+description = """
+末尾の 10 行(または指定した行数)を出力します。ログは新しい行が末尾に足されていくので、直近の様子を見るのに使います。
+
+`-f` を付けると終了せずに待ち続け、追記された行をその場で表示します。Ctrl-C で終了します。
+"""
+
+[[tail.options]]
+flag = "-n 50"
+description = "末尾 50 行を出力する"
+
+[[tail.options]]
+flag = "-n +2"
+description = "2 行目以降をすべて出力する (見出し行を飛ばす)"
+
+[[tail.options]]
+flag = "-f"
+description = "追記される行を表示し続ける"
+
+[[tail.examples]]
+command = "tail -f logs/worker-3.log"
+note = "ログに書き足される様子をその場で見る"
+
+[[tail.examples]]
+command = "tail -n +2 payment.csv"
+note = "CSV の見出し行を除いた残りを出力する"
+
+
+[cut]
+summary = "各行から、指定した列だけを切り出す"
+syntax = "cut -d 区切り文字 -f 列番号 [ファイル...]"
+description = """
+各行を区切り文字で分け、指定した番号の列だけを出力します。区切り文字は 1 文字で、指定しなければタブです。
+
+`awk` と違い、連続した空白をまとめて 1 つの区切りとは扱いません。空白が 1 つずつのログや、CSV のように区切りがはっきりしたデータに向いています。
+"""
+
+[[cut.options]]
+flag = "-d,"
+description = "区切り文字をカンマにする (空白なら -d' ')"
+
+[[cut.options]]
+flag = "-f2"
+description = "2 列目を出力する (-f1,3 や -f2- も書ける)"
+
+[[cut.options]]
+flag = "-c1-10"
+description = "各行の 1 文字目から 10 文字目を出力する"
+
+[[cut.examples]]
+command = "cut -d, -f2 payment.csv"
+note = "CSV の 2 列目を取り出す"
+
+[[cut.examples]]
+command = "cut -d' ' -f5 gateway.log | cut -d= -f2"
+note = "5 列目の `req=…` を取り出し、さらに `=` の後ろだけにする"
+
+
+[comm]
+summary = "並べ替え済みの 2 つのファイルを比べる"
+syntax = "comm [オプション] ファイル1 ファイル2"
+description = """
+2 つのファイルを 1 行ずつ比べ、「1 つ目だけにある行」「2 つ目だけにある行」「両方にある行」の 3 列で出力します。数字のオプションは、その列を出力しないという意味です。
+
+どちらのファイルも、あらかじめ同じ方法で `sort` しておく必要があります。
+"""
+
+[[comm.options]]
+flag = "-23"
+description = "1 つ目だけにある行を出力する"
+
+[[comm.options]]
+flag = "-13"
+description = "2 つ目だけにある行を出力する"
+
+[[comm.options]]
+flag = "-12"
+description = "両方にある行を出力する"
+
+[[comm.examples]]
+command = "comm -23 accepted.txt paid.txt"
+note = "accepted.txt にあって paid.txt にない行を出力する"
+
+[[comm.examples]]
+command = "comm -12 <(sort a.txt) <(sort b.txt)"
+note = "並べ替えながら、両方に共通する行を出力する"
+
+
+[join]
+summary = "2 つのファイルを共通の列で結合する"
+syntax = "join [オプション] ファイル1 ファイル2"
+description = """
+2 つのファイルから、キーとなる列(何も指定しなければ 1 列目)の値が同じ行どうしを横につなげて出力します。表計算やデータベースの結合と同じ考え方です。
+
+どちらのファイルも、キーの列で `sort` しておく必要があります。
+"""
+
+[[join.options]]
+flag = "-t,"
+description = "区切り文字をカンマにする"
+
+[[join.options]]
+flag = "-1 2 -2 1"
+description = "1 つ目は 2 列目、2 つ目は 1 列目をキーにする"
+
+[[join.options]]
+flag = "-v1"
+description = "相手が見つからなかった 1 つ目の行だけを出力する"
+
+[[join.options]]
+flag = "-a1"
+description = "相手が見つからなかった 1 つ目の行も出力する"
+
+[[join.examples]]
+command = "join -v1 accepted.txt paid.txt"
+note = "accepted.txt にあって paid.txt に対応する行がないものを出力する"
+
+[[join.examples]]
+command = "join -t, users.csv orders.csv"
+note = "2 つの CSV を 1 列目の値で結合する"
+
+
+[wc]
+summary = "行数、単語数、バイト数を数える"
+syntax = "wc [オプション] [ファイル...]"
+description = """
+入力の行数・単語数・バイト数を出力します。パイプの最後に `wc -l` を置いて、「条件に合った行が何行あったか」を数える使い方がいちばん多いコマンドです。
+
+ファイル名を渡すと数のあとに名前が付きますが、パイプから読ませると数だけが出ます。スクリプトで変数に入れるときは、パイプから渡すと扱いやすくなります。
+"""
+
+[[wc.options]]
+flag = "-l"
+description = "行数だけを出力する"
+
+[[wc.options]]
+flag = "-w"
+description = "単語数だけを出力する"
+
+[[wc.options]]
+flag = "-c"
+description = "バイト数だけを出力する"
+
+[[wc.examples]]
+command = "awk '$3 == \"ERROR\"' app.log | wc -l"
+note = "3 列目が ERROR の行数を数える"
+
+[[wc.examples]]
+command = "wc -l *.log"
+note = "ログごとの行数と、その合計を出す"
+
+
+[test]
+summary = "条件を調べて、成り立つかどうかを終了コードで返す"
+syntax = "[ 条件 ]    (test 条件 と同じ)"
+description = """
+条件が成り立てば終了コード 0、成り立たなければ 1 を返します。`[ 条件 ]` という書き方は `test` コマンドの別名で、`if` と組み合わせてスクリプトの条件分岐に使います。
+
+`[` のあとと `]` の前には空白が必要です。変数は `"$count"` のように二重引用符で囲まないと、中身が空のときや空白を含むときに壊れます。
+"""
+
+[[test.options]]
+flag = "-f パス"
+description = "通常のファイルとして存在する (-d ならディレクトリ、-e なら何でも)"
+
+[[test.options]]
+flag = "A -gt B"
+description = "数値として A が B より大きい (-ge 以上、-lt 未満、-le 以下)"
+
+[[test.options]]
+flag = "A -eq B"
+description = "数値として等しい (-ne なら等しくない)"
+
+[[test.options]]
+flag = "\"$a\" = \"$b\""
+description = "文字列として等しい (!= なら等しくない)"
+
+[[test.options]]
+flag = "-z \"$a\""
+description = "文字列が空である (-n なら空でない)"
+
+[[test.options]]
+flag = "! 条件"
+description = "条件の否定"
+
+[[test.examples]]
+command = "if [ \"$count\" -gt \"$2\" ]; then echo \"ALERT $count\"; fi"
+note = "数値を比べて分岐する"
+
+[[test.examples]]
+command = "[ -f \"$1\" ] || exit 2"
+note = "ファイルがなければ終了コード 2 で終わる"

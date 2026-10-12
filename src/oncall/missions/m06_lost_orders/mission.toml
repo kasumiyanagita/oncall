@@ -1,0 +1,78 @@
+id = "lost-orders"
+title = "消えた注文"
+level = 4
+host = "prod-api-01"
+workdir = "incident"
+par_time = 720
+par_commands = 16
+# クリアすると図鑑に登録されるコマンド (commands.toml の名前)
+commands = ["cut", "comm", "join"]
+
+ticket = """
+{{incident_id}}   重大度 SEV1   検知 {{detected_at}}
+カスタマーサポート → オンコール担当(あなた)
+
+「注文を確定したのに、注文履歴に出てこない」という問い合わせが
+相次いでいます。gateway は受け付けたのに、決済サービスに届いていない
+リクエストがあるようです。
+
+■ 依頼
+  gateway が受け付けた (status=202) POST /api/v1/checkout のうち、
+  決済ログに記録がないリクエスト ID をすべて特定し、
+  ~/incident/answer.txt に保存してください。
+  (1 行に 1 つの ID。重複なし。順序は問いません)
+
+■ 資料
+  ~/incident/gateway.log   gateway のアクセスログ (空白区切り)
+  ~/incident/payment.csv   決済サービスの処理記録 (カンマ区切り)
+"""
+
+[[hints]]
+text = """
+2 つのファイルは書式が違います。まず `head -3` でそれぞれの形を見ましょう。
+
+やることは「gateway 側の ID の一覧」と「決済側の ID の一覧」をそれぞれ作り、前者にしかないものを取り出すことです。列を切り出すのは `cut` です。`cut -d' ' -f5` は空白区切りの 5 列目、`cut -d, -f2` はカンマ区切りの 2 列目を取り出します。
+"""
+
+[[hints]]
+text = """
+gateway 側は、対象の行を `grep` で絞ってから ID を切り出します。`req=9f3a1c2e` から値だけを取るには、もう一度 `cut -d= -f2` を通します。
+
+決済側の 1 行目は見出しです。`tail -n +2 payment.csv` で 2 行目以降だけを取り出せます。どちらの一覧も、最後に `sort -u` で並べ替えて重複を除き、ファイルに保存しておきます。
+"""
+
+[[hints]]
+text = """
+並べ替え済みの 2 つのファイルを比べるのは `comm` です。出力は「1 つ目だけにある行」「2 つ目だけにある行」「両方にある行」の 3 列になります。
+
+`comm -23 accepted.txt paid.txt` は 2 列目と 3 列目を消すので、1 つ目(gateway 側)にしかない ID だけが残ります。
+"""
+
+[debrief]
+solution = '''
+grep 'POST /api/v1/checkout' gateway.log | grep 'status=202' | cut -d' ' -f5 | cut -d= -f2 | sort -u > accepted.txt
+tail -n +2 payment.csv | cut -d, -f2 | sort -u > paid.txt
+comm -23 accepted.txt paid.txt > answer.txt
+'''
+
+explanation = """
+書式の違う 2 つの記録を「ID の一覧」という同じ形にそろえてから比べる、という進め方でした。
+
+1. `grep 'POST /api/v1/checkout' gateway.log | grep 'status=202'`: 受け付けられた checkout の行だけに絞ります。400 で拒否されたリクエストは決済に届かないのが正しいので、ここで除きます。
+2. `cut -d' ' -f5 | cut -d= -f2`: 5 列目の `req=…` を取り出し、さらに `=` で区切った 2 つ目(ID そのもの)を取り出します。
+3. `sort -u`: 並べ替えて重複を除きます。リトライで同じリクエストが 2 回記録されていたので、これがないと同じ ID が 2 回出てきます。
+4. `tail -n +2 payment.csv | cut -d, -f2 | sort -u`: 見出し行を飛ばし、2 列目の ID を取り出して同じ形にします。
+5. `comm -23 accepted.txt paid.txt`: 1 つ目のファイルにしかない行だけを出力します。
+
+**`comm` と `join` は、入力が並べ替え済みであることを前提にしています。**並べ替えていないファイルを渡してもエラーにならず、間違った結果を返すことがあります。比べる前に必ず同じ方法で `sort` しておきます。
+
+途中の結果を `accepted.txt` のようなファイルに置いておくと、`wc -l` で件数を確かめながら進められます。「受け付けた件数 − 決済された件数」がおおよそ答えの件数と合うかどうかは、手軽な検算になります。
+"""
+
+[[debrief.alternatives]]
+command = "join -v1 <(grep 'POST /api/v1/checkout' gateway.log | grep 'status=202' | cut -d' ' -f5 | cut -d= -f2 | sort -u) <(tail -n +2 payment.csv | cut -d, -f2 | sort -u) > answer.txt"
+note = "`join` は 2 つのファイルを共通の列で結合するコマンドで、`-v1` を付けると「1 つ目にしかない行」を出力します。`<( )` は、コマンドの出力をファイルのように渡す書き方で、途中のファイルを作らずに済みます。"
+
+[[debrief.alternatives]]
+command = "comm -23 <(awk '$3 == \"POST\" && $4 == \"/api/v1/checkout\" && $7 == \"status=202\" {print substr($5, 5)}' gateway.log | sort -u) <(tail -n +2 payment.csv | cut -d, -f2 | sort -u) > answer.txt"
+note = "gateway 側の絞り込みと切り出しを `awk` 1 つで行う形です。列ごとに条件を書くので、URL の一部がたまたま一致するような取り違えが起きません。`substr($5, 5)` は 5 列目の 5 文字目以降、つまり `req=` を除いた部分です。"

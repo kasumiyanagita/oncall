@@ -1,0 +1,108 @@
+id = "errwatch"
+title = "同じ夜を繰り返さない"
+level = 4
+host = "prod-ops-01"
+workdir = "tools"
+par_time = 900
+par_commands = 20
+# クリアすると図鑑に登録されるコマンド (commands.toml の名前)
+commands = ["wc", "test"]
+
+ticket = """
+{{incident_id}}   重大度 SEV4   起票 {{detected_at}}
+チームリーダー → オンコール担当(あなた)
+
+夜通しお疲れさまでした。同じ障害に次はもっと早く気づけるよう、
+エラーの急増を検知するスクリプトを用意しておきましょう。
+
+■ 依頼
+  ~/tools/errwatch.sh を作成してください。
+
+  使い方:  errwatch.sh ログファイル 閾値
+
+  1. ログの中で、レベルが ERROR の行数 N を数える
+     (ログの各行は「日付 時刻 レベル 本文」の形。レベルは 3 列目)
+  2. N が閾値を超えていたら「ALERT N」と出力し、終了コード 1 で終わる
+  3. そうでなければ「OK N」と出力し、終了コード 0 で終わる
+  4. 引数が 2 つでないとき、ログファイルが存在しないときは
+     終了コード 2 で終わる (出力は問わない)
+  5. ./errwatch.sh として直接実行できるようにする
+
+■ 資料
+  ~/tools/sample.log   動作確認用のログ。正しく作れていれば
+                       ./errwatch.sh sample.log 10 の出力は
+                       「{{sample_expected}}」になります
+
+  エディタは nano や vim が使えます。
+"""
+
+[[hints]]
+text = """
+まずは数えるところからです。スクリプトにする前に、コマンドラインで `sample.log` の ERROR 行数を正しく数えられるか試しましょう。
+
+`grep -c ERROR sample.log` では多く数えすぎます。本文に「ERROR」という単語を含む INFO や WARN の行があるからです。3 列目がちょうど `ERROR` の行だけを数えるには、`awk '$3 == "ERROR"' sample.log | wc -l` が使えます。
+"""
+
+[[hints]]
+text = """
+スクリプトは、1 行目に `#!/bin/bash` を書いたテキストファイルです。`nano errwatch.sh` で作り、`chmod +x errwatch.sh` で実行権限を付けます。
+
+スクリプトの中では、1 つ目の引数を `"$1"`、2 つ目を `"$2"`、引数の個数を `$#` で参照できます。コマンドの結果を変数に入れるのは `count=$(コマンド)` です。パスに空白が含まれても壊れないよう、`"$1"` は必ず二重引用符で囲みます。
+"""
+
+[[hints]]
+text = """
+条件分岐は `if [ 条件 ]; then … fi` です。数値の比較は `-gt`(より大きい)、`-ne`(等しくない)、ファイルの存在は `-f` で調べます。
+
+`if [ $# -ne 2 ] || [ ! -f "$1" ]; then exit 2; fi` で引数の確認、`if [ "$count" -gt "$2" ]; then echo "ALERT $count"; exit 1; fi` で閾値の判定ができます。どの `if` にも当てはまらなければ、最後に `echo "OK $count"` を実行します。
+"""
+
+[debrief]
+solution = '''
+cat > errwatch.sh <<'EOF'
+#!/bin/bash
+if [ $# -ne 2 ] || [ ! -f "$1" ]; then
+    echo "usage: errwatch.sh LOGFILE THRESHOLD" >&2
+    exit 2
+fi
+
+count=$(awk '$3 == "ERROR"' "$1" | wc -l)
+
+if [ "$count" -gt "$2" ]; then
+    echo "ALERT $count"
+    exit 1
+fi
+echo "OK $count"
+EOF
+chmod +x errwatch.sh
+'''
+
+explanation = """
+ここまでのインシデントで使ってきたコマンドを、1 つのスクリプトにまとめる作業でした。
+
+1. `#!/bin/bash`: このファイルを bash で実行する、という指定です。これと実行権限(`chmod +x`)がそろうと、`./errwatch.sh` として直接実行できます。
+2. `[ $# -ne 2 ] || [ ! -f "$1" ]`: 引数が 2 つでない、またはファイルが存在しない場合に、使い方を標準エラー出力(`>&2`)に出して終了コード 2 で終わります。
+3. `count=$(awk '$3 == "ERROR"' "$1" | wc -l)`: 3 列目が ERROR の行を取り出し、その行数を変数に入れます。
+4. `[ "$count" -gt "$2" ]`: 閾値を超えているときだけ ALERT を出して終了コード 1 で終わります。「超えている」なので、ちょうど同じ数のときは OK です。
+5. 最後まで進んだら `OK` を出します。スクリプトは最後のコマンドの終了コードで終わるので、ここは 0 になります。
+
+**終了コードは、スクリプトどうしが結果を伝え合うための約束事です。**0 が成功、0 以外が失敗で、`if ./errwatch.sh app.log 10; then …` や `./errwatch.sh app.log 10 || 通知コマンド` のように、ほかのコマンドと組み合わせる土台になります。cron や監視ツールも、この値を見て動きます。
+
+**変数は必ず二重引用符で囲みます。**`"$1"` を `$1` と書くと、パスに空白が含まれたときに 2 つの引数に分かれてしまいます。前のインシデントで `xargs` が取りこぼしたのと同じ種類の問題です。
+"""
+
+[[debrief.alternatives]]
+command = '''
+cat > errwatch.sh <<'EOF'
+#!/bin/bash
+[ $# -eq 2 ] && [ -f "$1" ] || exit 2
+count=$(grep -cE '^[^ ]+ [^ ]+ ERROR ' "$1")
+if [ "$count" -gt "$2" ]; then
+    echo "ALERT $count"
+    exit 1
+fi
+echo "OK $count"
+EOF
+chmod +x errwatch.sh
+'''
+note = "`grep -c` で数える形です。パターンで「行頭から空白 2 つ分の列を飛ばした位置に ERROR がある」と指定しているので、本文中の ERROR には一致しません。`grep -c` は一致が 0 件でも `0` を出力しますが、終了コードは 1 になる点に注意します(`set -e` を使うスクリプトでは、そこで止まってしまいます)。"

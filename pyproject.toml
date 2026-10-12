@@ -1,0 +1,23 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "oncall"
+version = "0.1.0"
+description = "障害対応をこなしながら Linux コマンドを身につけるターミナルゲーム"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = ["rich>=13"]
+
+[project.optional-dependencies]
+dev = ["pytest"]
+
+[project.scripts]
+oncall = "oncall.cli:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/oncall"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

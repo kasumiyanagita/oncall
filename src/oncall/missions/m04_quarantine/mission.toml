@@ -1,0 +1,69 @@
+id = "quarantine"
+title = "壊れたファイルを隔離せよ"
+level = 3
+host = "prod-batch-02"
+workdir = "data"
+par_time = 480
+par_commands = 12
+# クリアすると図鑑に登録されるコマンド (commands.toml の名前)
+commands = ["xargs", "mv"]
+
+ticket = """
+{{incident_id}}   重大度 SEV3   検知 {{detected_at}}
+データ基盤チーム → オンコール担当(あなた)
+
+夜間の取り込みバッチが、壊れた CSV を読んで止まりました。
+朝の再実行までに、壊れたファイルを取り除く必要があります。
+
+■ 依頼
+  ~/data/uploads 以下 (日付ごとのサブディレクトリを含む) の
+  .csv ファイルのうち、中身に checksum=INVALID を含むものを
+  すべて ~/data/quarantine の直下へ移動してください。
+
+  壊れていない CSV と、CSV 以外のファイルは動かさないでください。
+"""
+
+[[hints]]
+text = """
+中身で探すのは `grep` です。`grep -rl 'checksum=INVALID' uploads` で、その文字列を含むファイルの名前だけが出ます(`-r` はサブディレクトリも探す、`-l` はファイル名だけを出す)。
+
+出てきた一覧をよく見てください。`.csv` 以外のファイルも混ざっています。`--include='*.csv'` を付けると、対象を CSV に絞れます。
+"""
+
+[[hints]]
+text = """
+一覧を別のコマンドの引数として渡すのが `xargs` です。`… | xargs mv -t quarantine` で、一覧のファイルをまとめて移動できます(`mv -t 移動先` は、移動先を先に書く形です)。
+
+ただし `xargs` は、何も指定しないと空白や引用符で入力を区切ります。ここには `acme corp orders 0142.csv` のような名前があるので、そのままでは名前がばらばらになります。
+"""
+
+[[hints]]
+text = """
+名前を安全に受け渡すには、区切りをヌル文字にします。`grep` に `-Z`、`xargs` に `-0` を付けると、空白や `'` を含む名前もそのまま渡せます。
+
+`grep -rlZ 'checksum=INVALID' --include='*.csv' uploads | xargs -0 mv -t quarantine`
+"""
+
+[debrief]
+solution = "grep -rlZ 'checksum=INVALID' --include='*.csv' uploads | xargs -0 mv -t quarantine"
+
+explanation = """
+「条件に合うファイルを一覧にして、まとめて別のコマンドに渡す」という、`xargs` の典型的な使い方です。
+
+1. `grep -rl 'checksum=INVALID' uploads`: 文字列を含むファイルの名前を、サブディレクトリも含めて一覧にします。
+2. `--include='*.csv'`: 探す対象を `.csv` で終わる名前に絞ります。これがないと、同じ文字列を含む取り込みログや `.csv.tmp` まで移動してしまいます。
+3. `-Z` と `xargs -0`: ファイル名の区切りをヌル文字にします。
+4. `mv -t quarantine`: 受け取ったファイルをすべて `quarantine` へ移動します。
+
+**`xargs` は、何も指定しないと空白・改行・引用符で入力を区切ります。**`acme corp orders 0142.csv` は 4 つの別々の引数になり、`o'brien co …` は引用符が閉じていないとしてエラーになります。ファイル名を受け渡すときは `-0`(ヌル区切り)か `-d '\\n'`(改行区切り)を付けるのが安全です。
+
+ファイル名に空白が入ることは、利用者がアップロードするデータでは普通に起こります。「手元の数個では動いたのに本番で取りこぼす」原因の定番です。
+"""
+
+[[debrief.alternatives]]
+command = "grep -rl 'checksum=INVALID' --include='*.csv' uploads | xargs -d '\\n' mv -t quarantine"
+note = "`-d '\\n'` で区切りを改行だけにする方法です。相手のコマンドにヌル区切りで出力する機能がないときに使えます。名前に改行を含むファイルには対応できませんが、実用上はほぼ困りません。"
+
+[[debrief.alternatives]]
+command = "find uploads -name '*.csv' -exec grep -q 'checksum=INVALID' {} \\; -exec mv {} quarantine/ \\;"
+note = "`find` だけで済ませる方法です。`-exec … \\;` は 1 ファイルずつコマンドを実行し、成功したときだけ次の `-exec` に進みます。ファイル名はそのまま渡されるので空白の問題は起きませんが、ファイルの数だけプロセスを起動するので遅くなります。"
