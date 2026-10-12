@@ -14,7 +14,7 @@ from oncall.catalog import CommandEntry
 from oncall.mission import Mission
 from oncall.progress import Progress
 from oncall.prose import MAX_WIDTH, PANEL_CHROME, render_prose
-from oncall.screen import Screen
+from oncall.screen import RESIZED, Screen
 
 # 項目パネルの余白(上下, 左右)。PANEL_CHROME は左右 1 を前提にしているので差分を引く
 _PADDING = (1, 2)
@@ -113,6 +113,7 @@ class Zukan:
 
         Enter か title でトップページに戻る(True)。exit なら終了を選んだことになる(False)。
         """
+        shown = "list"  # いま表示しているもの(一覧か、項目の名前)
         screen.clear()
         self.show_list(console)
         while True:
@@ -122,12 +123,15 @@ class Zukan:
                 "[d.key]exit[/] 終了",
                 title="コマンド図鑑",
             )
-            answer = screen.read_line(placeholder="コマンド名か番号を入力(例: grep)")
+            answer = screen.read_line(placeholder="コマンド名か番号を入力(例: grep)", redraw_on_resize=True)
+            if answer == RESIZED:  # 端末の大きさが変わった。同じものを、新しい大きさで描き直す
+                answer = shown
             if answer is None or answer.strip() == "exit":
                 return False
             answer = answer.strip()
             if answer in {"", "title"}:
                 return True
+            shown = answer
             screen.clear()
             if answer == "list":
                 self.show_list(console)

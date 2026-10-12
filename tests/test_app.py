@@ -49,7 +49,10 @@ def run_app(tmp_path, steps, rows=30, columns=100, first_time=False):
 
     read_until_quiet(quiet=1.5)
     for keys in steps:
-        os.write(fd, keys.encode())
+        if isinstance(keys, tuple):  # (行数, 桁数): 端末の大きさを変える
+            fcntl.ioctl(fd, termios.TIOCSWINSZ, struct.pack("HHHH", *keys, 0, 0))
+        else:
+            os.write(fd, keys.encode())
         read_until_quiet()
     # 最後の入力で終了するはずなので、終わるまで少し待つ
     deadline = time.time() + 10
@@ -120,3 +123,10 @@ def test_plain_oncall_never_opens_a_retro_tab(monkeypatch):
     assert cli.main(["--retro"]) == 0 and opened == [["--retro"]]
     monkeypatch.setenv("ONCALL_RETRO", "1")
     assert cli.main(["--retro"]) == 2 and len(opened) == 1
+
+
+def test_top_page_is_redrawn_when_the_terminal_is_resized(tmp_path):
+    screen, code = run_app(tmp_path, [(24, 70), (40, 120), "exit\r"])
+    assert "Traceback" not in screen
+    assert screen.count("インシデント一覧") == 3  # 大きさを変えるたびに、トップページを描き直す
+    assert "お疲れさまでした" in screen and code == 0

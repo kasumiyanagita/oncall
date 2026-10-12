@@ -17,7 +17,7 @@ from oncall import __version__, design, retro, sandbox, tutorial
 from oncall.catalog import load_catalog
 from oncall.mission import Mission, load_missions
 from oncall.progress import Progress, default_path
-from oncall.screen import Screen
+from oncall.screen import RESIZED, Screen
 from oncall.session import MissionSession, format_duration, rank_markup
 from oncall.zukan import Zukan
 
@@ -30,6 +30,7 @@ ZUKAN = "zukan"
 TUTORIAL = "tutorial"
 NEXT_PAGE = "next-page"
 PREVIOUS_PAGE = "previous-page"
+REDRAW = "redraw"  # 端末の大きさが変わったので、トップページを新しい大きさで描き直す
 
 FRAME_ROWS = 2  # 一覧を囲む枠の、上下の線
 FRAME_WIDTH = 100  # 一覧を囲む枠の幅の上限
@@ -191,7 +192,11 @@ def _choose(
             f"[d.key]{tutorial.WORD}[/] 使い方",
             "[d.key]exit[/] 終了",
         )
-        answer = screen.read_line(shortcuts=PAGE_KEYS if paged else None, placeholder=MENU_PLACEHOLDER)
+        answer = screen.read_line(
+            shortcuts=PAGE_KEYS if paged else None, placeholder=MENU_PLACEHOLDER, redraw_on_resize=True
+        )
+        if answer == RESIZED:
+            return REDRAW
         if answer is None:
             return None
         answer = answer.strip().lower()
@@ -316,6 +321,8 @@ def main(argv: list[str] | None = None) -> int:
             elif choice == TUTORIAL:
                 if not tutorial.run(screen, console, mode):
                     return goodbye()
+            elif choice == REDRAW:
+                pass
             elif isinstance(choice, str):  # ページを送る
                 page += 1 if choice == NEXT_PAGE else -1
             else:

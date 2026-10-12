@@ -40,8 +40,11 @@ _HELPER_COMMANDS = {"mission", "hint", "check", "zukan", "title", "exit", "clear
 
 
 def format_duration(seconds: float) -> str:
+    """「7 分」「6 分 12 秒」の形。7:00 のように書くと時刻に見えるので、単位を付ける。"""
     minutes, secs = divmod(int(seconds), 60)
-    return f"{minutes}:{secs:02d}"
+    if secs == 0 and minutes:
+        return f"{minutes} 分"
+    return f"{minutes} 分 {secs} 秒" if minutes else f"{secs} 秒"
 
 
 def rank_markup(rank: str) -> str:

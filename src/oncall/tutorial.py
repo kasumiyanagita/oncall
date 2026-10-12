@@ -12,7 +12,7 @@ from rich.text import Text
 
 from oncall import design, sandbox
 from oncall.prose import MAX_WIDTH, PANEL_CHROME, render_prose
-from oncall.screen import Screen
+from oncall.screen import RESIZED, Screen
 
 WORD = "tutorial"  # トップページで打つと、チュートリアルを開く言葉
 NEXT, PREVIOUS = "next", "previous"
@@ -62,6 +62,8 @@ def _pages(mode: str) -> list[tuple[str, list[str | Text]]]:
                 "2. 最初に出る **依頼**(チケット)を読み、コマンドを打って調べます。使うコマンドに決まりはありません。\n"
                 "3. 解決できたと思ったら `check` と打ちます。まだなら、何が足りないかが出ます。\n"
                 "4. 解決すると、所要時間・コマンド数・ヒント・判定ミスから **ランク**(S / A / B / C)が付き、模範解答と別解が表示されます。",
+                "依頼の先頭にある `INC-1234` は障害の管理番号、`SEV2` は重大度です(数字が小さいほど深刻)。"
+                "現場の書き方をまねたもので、解くのには使いません。",
             ],
         ),
         (
@@ -124,7 +126,13 @@ def run(screen: Screen, console: Console, mode: str) -> bool:
             "[d.key]title[/] トップページに戻る",
             "[d.key]exit[/] 終了",
         )
-        answer = screen.read_line(shortcuts=KEYS, placeholder="Enter で次へ" if not last else "Enter でトップページへ")
+        answer = screen.read_line(
+            shortcuts=KEYS,
+            placeholder="Enter で次へ" if not last else "Enter でトップページへ",
+            redraw_on_resize=True,
+        )
+        if answer == RESIZED:  # 端末の大きさが変わった。同じページを、新しい大きさで描き直す
+            continue
         answer = None if answer is None else answer.strip().lower()
         if answer is None or answer == "exit":
             return False

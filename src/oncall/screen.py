@@ -34,6 +34,8 @@ _DEFAULT_CURSOR = "\x1b[0 q"
 # 消えたり崩れたりするので、このあと描き直す
 _DAMAGE = re.compile(rb"\x1b\[[0-9;?]*J|\x1b\[\?[0-9;]*(?:47|1047|1049)[0-9;]*[hl]|\x1b\[[0-9;]*r|\x1bc")
 
+# read_line が、端末の大きさが変わったことを知らせるために返す値(キー入力では作れない文字列)
+RESIZED = "\x00resized"
 MENU_PROMPT = Text("> ", style="d.prompt.menu")
 # 表示の部分に残す、確定した入力の行。背景を付けて、どこからが新しい結果なのかを見分けやすくする
 ECHO_STYLE = "d.echo"
@@ -114,14 +116,16 @@ class Screen:
         """表示の部分の (行数, 桁数)。シェルにはこの大きさの端末として見せる。"""
         return self.rows, self._columns
 
-    def check_resize(self) -> None:
-        """wake_fd が読めるようになったら呼ぶ。端末の大きさが変わっていたら割り付け直す。"""
+    def check_resize(self) -> bool:
+        """wake_fd が読めるようになったら呼ぶ。端末の大きさが変わっていたら割り付け直し、True を返す。"""
         try:
             os.read(self.wake_fd, 1024)
         except BlockingIOError:
             pass
-        if self._terminal_size() != (self._columns, self._lines):
-            self._reflow(self._measure)
+        if self._terminal_size() == (self._columns, self._lines):
+            return False
+        self._reflow(self._measure)
+        return True
 
     def _reflow(self, change: Callable[[], None]) -> None:
         """表示の部分の大きさが変わりうる変更(端末の大きさ、お題)を行い、割り付け直す。"""
@@ -285,11 +289,17 @@ class Screen:
     # ---- 入力 ---------------------------------------------------------
 
     def read_line(
-        self, prompt: Text = MENU_PROMPT, shortcuts: dict[str, str] | None = None, placeholder: str = ""
+        self,
+        prompt: Text = MENU_PROMPT,
+        shortcuts: dict[str, str] | None = None,
+        placeholder: str = "",
+        redraw_on_resize: bool = False,
     ) -> str | None:
         """入力欄から 1 行読む。Ctrl-D や Ctrl-C なら None。
 
         placeholder は、何も打っていないあいだ入力欄に薄く出しておく案内。
+        redraw_on_resize が True なら、端末の大きさが変わったときに RESIZED を返す
+        (呼び出し側が、新しい大きさに合わせて画面を描き直すため。打ちかけの文字は捨てる)。
 
         shortcuts は「キー → 返す文字列」。何も打っていないときにそのキーが押されたら、
         Enter を待たずにその文字列を返す(一覧のページ送りに使う)。
@@ -298,8 +308,10 @@ class Screen:
         while True:
             self.park(prompt, editor, placeholder)
             readable, _, _ = select.select([self.input_fd, self.wake_fd], [], [])
-            if self.wake_fd in readable:
-                self.check_resize()
+            if self.wake_fd in readable and self.check_resize() and redraw_on_resize:
+                # 表示の部分は、前の大きさに合わせて描いてある。呼び出し側に描き直してもらう
+                self.unpark()
+                return RESIZED
             if self.input_fd not in readable:
                 continue
             typed = os.read(self.input_fd, 1024)
