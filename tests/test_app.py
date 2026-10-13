@@ -88,7 +88,8 @@ def test_exit_works_only_on_the_top_page(tmp_path):
     screen, code = run_app(tmp_path, steps)
     assert "Traceback" not in screen
     assert "access.log" in screen  # exit のあとも、ミッションのシェルは動いている
-    assert screen.count("exit はトップページで使えます") == 2  # ミッションと見学で 1 回ずつ
+    # ミッション、見学の一覧、見学中、図鑑、チュートリアルで 1 回ずつ、終了できない理由が出る
+    assert screen.count("exit はトップページで使えます") == 5
     assert screen.count("インシデント一覧") == 5 and screen.count("お疲れさまでした") == 1 and code == 0
 
 

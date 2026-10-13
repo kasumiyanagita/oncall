@@ -41,6 +41,9 @@ MENU_PROMPT = Text("> ", style="d.prompt.menu")
 ECHO_STYLE = "d.echo"
 
 
+# 終了(exit)を選べるのはトップページだけ。ほかの場所で打たれたときに出す
+EXIT_ONLY_AT_TOP = "exit はトップページで使えます。title と打つと、トップページに戻ります。"
+
 class Screen:
     def __init__(self, console: Console):
         self.console = console
@@ -287,6 +290,10 @@ class Screen:
         self.console.print(entry, soft_wrap=True, highlight=False)
 
     # ---- 入力 ---------------------------------------------------------
+
+    def exit_refused(self, console) -> None:
+        """トップページ以外で exit と打たれた。終了できない理由と、代わりの操作を伝える。"""
+        console.print(f"[d.error]{EXIT_ONLY_AT_TOP}[/]")
 
     def read_line(
         self,

@@ -129,6 +129,7 @@ class Zukan:
                 return
             answer = answer.strip()
             if answer == "exit":  # 終了は、トップページでだけ選べる
+                screen.exit_refused(console)
                 continue
             shown = answer
             screen.clear()

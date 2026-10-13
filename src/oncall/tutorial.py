@@ -116,10 +116,14 @@ def run(screen: Screen, console: Console, mode: str) -> None:
     """チュートリアルを最初のページから見せる。見終えるか title で、トップページに戻る。"""
     pages = _pages(mode)
     index = 0
+    refused = False  # 直前に exit と打たれた(終了できない理由を、ページを描いたあとに出す)
     while True:
         screen.clear()
         title, blocks = pages[index]
         _show(console, title, blocks, index + 1, len(pages))
+        if refused:
+            screen.exit_refused(console)
+            refused = False
         last = index == len(pages) - 1
         screen.set_status(
             f"[d.key]Enter[/] {'はじめる' if last else '次へ'}",
@@ -138,5 +142,7 @@ def run(screen: Screen, console: Console, mode: str) -> None:
             return
         if answer == PREVIOUS:
             index = max(0, index - 1)
-        elif answer in {"", NEXT}:  # それ以外(exit など)は、何もしない
+        elif answer == "exit":  # 終了は、トップページでだけ選べる
+            refused = True
+        elif answer in {"", NEXT}:
             index = min(len(pages) - 1, index + 1)

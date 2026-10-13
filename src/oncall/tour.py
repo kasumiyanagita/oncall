@@ -38,7 +38,7 @@ from oncall import design, procs, sandbox
 from oncall.mission import Mission, render
 from oncall.progress import Progress
 from oncall.prose import MAX_WIDTH, PANEL_CHROME, render_prose
-from oncall.screen import RESIZED, Screen
+from oncall.screen import EXIT_ONLY_AT_TOP, RESIZED, Screen
 from oncall.session import prepare_run_dir
 from oncall.shell import CommandResult, Shell
 
@@ -345,9 +345,13 @@ def room(
     seed: int | None = None,
 ) -> None:
     """見学の部屋。一覧から選んで見る。title でトップページに戻る(終了は、トップページでだけ選べる)。"""
+    refused = ""  # 直前の入力を受け付けなかった理由(次に一覧を描いたあとに出す)
     while True:
         screen.clear()
         _show_room(console, tours, progress, missions)
+        if refused:
+            console.print(f"[d.error]{refused}[/]")
+            refused = ""
         unwatched = next((t for t in tours if t.id not in progress.watched), None)
         choices = [f"[d.key]Enter[/] 見学 {tours.index(unwatched) + 1}"] if unwatched else []
         screen.set_status(*choices, "[d.key]title[/] トップページに戻る", title="[d.heading]見学[/]")
@@ -362,6 +366,7 @@ def room(
         elif answer.isdigit() and 1 <= int(answer) <= len(tours):
             tour = tours[int(answer) - 1]
         else:
+            refused = EXIT_ONLY_AT_TOP if answer == "exit" else f"1〜{len(tours)} の番号を入力してください。"
             continue
         screen.clear()
         outcome = TourSession(tour, console, mode, progress, seed, screen=screen).play()
