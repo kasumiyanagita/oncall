@@ -19,6 +19,7 @@ import struct
 import subprocess
 import sys
 import termios
+import time
 from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
@@ -124,6 +125,11 @@ class Shell:
         self._label = label  # 現在地の前に出す「ユーザー名@ホスト名」
         # 次のプロンプトが出て入力待ちになるたびに呼ばれる(テストで次の行を送るのに使う)
         self.on_idle: Callable[[], None] | None = None
+        # 何も打たずに Enter を押したときに呼ばれる(見学で「次へ」に使う)。なければ、空の Enter では何もしない
+        self.on_empty_enter: Callable[[], None] | None = None
+        # 入力を待っていて、まだ何も打たれていないあいだ、入力欄に薄く出しておく案内
+        self.placeholder = ""
+        self._stopping = False
 
         self._master, slave = pty.openpty()
         self._sync_window_size()
@@ -188,7 +194,9 @@ class Shell:
 
     def _submit(self, line: str) -> None:
         if not line.strip() and not self._continuing:
-            return  # 空の Enter では何もしない
+            if self.on_empty_enter:
+                self.on_empty_enter()
+            return  # 空の Enter では、シェルには何も渡さない
         if self._screen:
             self._screen.echo(self._prompt(), line)
             used = commands_in(line)
@@ -196,6 +204,26 @@ class Shell:
         self._at_prompt = False
         # 実行中に打たれてシェルに残っている文字があれば、先に消す(Ctrl-U)
         os.write(self._master, b"\x15" + line.encode() + b"\n")
+
+    def type_and_run(self, line: str, recalled: int = 0, delay: float = 0.02) -> None:
+        """line を、人が打っているように 1 文字ずつ入力欄に出してから実行する(見学用)。
+
+        先頭の recalled 文字は、↑ キーで前のコマンドを呼び出したように、一度に出す。
+        シェルが次の行を待っているときに呼ぶ。
+        """
+        self._editor.clear()
+        for index, char in enumerate(line):
+            self._editor.press(char)
+            if self._screen and index + 1 >= recalled:
+                self._screen.park(self._prompt(), self._editor)
+                time.sleep(delay * (8 if index + 1 == recalled else 1))  # 呼び出した直後は、ひと呼吸おく
+        if self._screen:
+            time.sleep(0.35)  # 打ち終えてから Enter を押すまでの間
+        self._submit(self._editor.take())
+
+    def stop(self) -> None:
+        """入出力の中継を、次の区切りで終える(run が True を返す)。"""
+        self._stopping = True
 
     # ---- 中継 ---------------------------------------------------------
 
@@ -247,8 +275,10 @@ class Shell:
                         self.on_idle()
 
                 self._type()
+                if self._stopping:
+                    return True
                 if self._at_prompt and self._screen:
-                    self._screen.park(self._prompt(), self._editor)
+                    self._screen.park(self._prompt(), self._editor, self.placeholder)
                 readable, _, _ = select.select(fds, [], [])
                 if self._screen and self._screen.wake_fd in readable:
                     self._screen.check_resize()

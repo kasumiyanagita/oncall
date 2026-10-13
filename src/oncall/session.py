@@ -52,6 +52,22 @@ def rank_markup(rank: str) -> str:
     return f"[d.rank.{rank.lower()}]{rank}[/]"
 
 
+def prepare_run_dir(layout: sandbox.Layout, scenario, ctx: dict) -> None:
+    """シェルが起動時に読むファイルを、作業用の場所に置く(ミッションと見学で共通)。
+
+    scenario は、ミッションや見学の scenario.py(shell_setup や precheck があれば使う)。
+    """
+    run = layout.run
+    for name in ("bashrc", "guard.bash"):
+        shutil.copy(sandbox.SHELL_DIR / name, run / name)
+    # ミッションが用意していれば、シェルの中で実行するスクリプトを置く(bashrc が読み込む)
+    for filename, function in (("setup.bash", "shell_setup"), ("precheck.bash", "precheck")):
+        if script := getattr(scenario, function, None):
+            (run / filename).write_text(script(ctx))
+    # Ubuntu の /etc/bash.bashrc が出す sudo の案内文を抑える
+    (layout.home / ".hushlogin").touch()
+
+
 @dataclass(frozen=True)
 class Outcome:
     """プレイの終わり方。"""
@@ -155,15 +171,7 @@ class MissionSession:
         return Outcome(self.score, self._to_title)
 
     def _prepare_run_dir(self) -> None:
-        run = self.layout.run
-        for name in ("bashrc", "guard.bash"):
-            shutil.copy(sandbox.SHELL_DIR / name, run / name)
-        # ミッションが用意していれば、シェルの中で実行するスクリプトを置く(bashrc が読み込む)
-        for filename, function in (("setup.bash", "shell_setup"), ("precheck.bash", "precheck")):
-            if script := getattr(self.mission.scenario, function, None):
-                (run / filename).write_text(script(self.ctx))
-        # Ubuntu の /etc/bash.bashrc が出す sudo の案内文を抑える
-        (self.layout.home / ".hushlogin").touch()
+        prepare_run_dir(self.layout, self.mission.scenario, self.ctx)
 
     def _on_ready(self) -> None:
         """シェルの準備ができた。ここから時間を計る。"""

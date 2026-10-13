@@ -130,3 +130,25 @@ def test_top_page_is_redrawn_when_the_terminal_is_resized(tmp_path):
     assert "Traceback" not in screen
     assert screen.count("インシデント一覧") == 3  # 大きさを変えるたびに、トップページを描き直す
     assert "お疲れさまでした" in screen and code == 0
+
+
+def test_watch_the_senior_work_to_the_end(tmp_path):
+    """見学: Enter を押すたびに、先輩がコマンドを打ち、解説が出る。最後まで見ると一覧に戻り、見た印が付く。"""
+    from oncall.tour import load_tours
+
+    tour = load_tours(load_missions())[0]
+    steps = ["senpai\r", "\r"] + ["\r", "\r"] * len(tour.steps) + ["\r", "title\r", "exit\r"]
+    screen, code = run_app(tmp_path, steps)
+    assert "Traceback" not in screen
+    assert "見学: 先輩の作業を見る" in screen and f"見学「数える」 {len(tour.steps)}/{len(tour.steps)}" in screen
+    assert "cut -d@ -f2 | sort | uniq -c | sort -rn | head -5" in screen
+    assert "status=bounced" in screen  # 先輩のコマンドが、本当に実行されている
+    assert "「数える」のやり方は、インシデント「深夜の 500 祭り」「消えた注文」で使えます" in screen
+    assert '"count"' in (tmp_path / "progress.json").read_text().split('"watched"')[1]
+    assert screen.count("インシデント一覧") == 2 and code == 0
+
+
+def test_exit_while_watching_quits_the_game(tmp_path):
+    screen, code = run_app(tmp_path, ["senpai\r", "1\r", "\r", "exit\r"])
+    assert "Traceback" not in screen and "お疲れさまでした" in screen
+    assert screen.count("インシデント一覧") == 1 and code == 0

@@ -13,7 +13,7 @@ from rich.panel import Panel
 from rich.table import Table
 from rich.text import Text
 
-from oncall import __version__, design, retro, sandbox, tutorial
+from oncall import __version__, design, retro, sandbox, tour, tutorial
 from oncall.catalog import load_catalog
 from oncall.mission import Mission, load_missions
 from oncall.progress import Progress, default_path
@@ -28,6 +28,7 @@ MODE_LABELS = {
 
 ZUKAN = "zukan"
 TUTORIAL = "tutorial"
+SENPAI = "senpai"
 NEXT_PAGE = "next-page"
 PREVIOUS_PAGE = "previous-page"
 REDRAW = "redraw"  # 端末の大きさが変わったので、トップページを新しい大きさで描き直す
@@ -188,6 +189,7 @@ def _choose(
     while True:
         screen.set_status(
             *choices,
+            f"[d.key]{tour.WORD}[/] 見学",
             "[d.key]zukan[/] 図鑑",
             f"[d.key]{tutorial.WORD}[/] 使い方",
             "[d.key]exit[/] 終了",
@@ -206,6 +208,8 @@ def _choose(
             return ZUKAN
         if answer == tutorial.WORD:
             return TUTORIAL
+        if answer == tour.WORD:
+            return SENPAI
         if paged and answer in {NEXT_PAGE, PREVIOUS_PAGE}:
             return answer
         if not answer and unsolved:
@@ -296,6 +300,7 @@ def main(argv: list[str] | None = None) -> int:
             f"元のファイルは {progress.quarantined} に残してあります。[/]"
         )
     zukan = Zukan(load_catalog(), missions, progress)
+    tours = tour.load_tours(missions)
 
     def goodbye() -> int:
         console.print("お疲れさまでした。")
@@ -320,6 +325,9 @@ def main(argv: list[str] | None = None) -> int:
                     return goodbye()
             elif choice == TUTORIAL:
                 if not tutorial.run(screen, console, mode):
+                    return goodbye()
+            elif choice == SENPAI:
+                if not tour.room(screen, console, tours, missions, progress, mode, seed=args.seed):
                     return goodbye()
             elif choice == REDRAW:
                 pass

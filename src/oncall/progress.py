@@ -63,6 +63,8 @@ class Progress:
     unlocked: dict[str, str] = field(default_factory=dict)
     # コマンド名 → プレイヤーが実行した回数
     usage: dict[str, int] = field(default_factory=dict)
+    # 見学(先輩の作業を見る)の id → 最後まで見た日
+    watched: dict[str, str] = field(default_factory=dict)
     # チュートリアルを見せたか(初めて起動したときに 1 回だけ自動で出すため)
     tutorial_seen: bool = False
     # 読み込めなかったセーブデータを退避した先(あれば起動時に知らせる)
@@ -90,6 +92,7 @@ class Progress:
                 unlocked=dict(data["unlocked"]),
                 usage={name: int(count) for name, count in data["usage"].items()},
                 tutorial_seen=bool(data.get("tutorial_seen", False)),
+                watched=dict(data.get("watched", {})),
             )
         except (OSError, ValueError, KeyError, TypeError):
             # 壊れたデータを上書きして消さないよう、別名で残してから新しく始める
@@ -110,6 +113,7 @@ class Progress:
                 for mission_id, record in self.missions.items()
             },
             "unlocked": self.unlocked,
+            "watched": self.watched,
             "usage": self.usage,
         }
         self.path.parent.mkdir(parents=True, exist_ok=True)
@@ -122,6 +126,12 @@ class Progress:
         """チュートリアルを見せたことを記録して保存する。"""
         if not self.tutorial_seen:
             self.tutorial_seen = True
+            self.save()
+
+    def mark_watched(self, tour_id: str) -> None:
+        """見学を最後まで見たことを記録して保存する。"""
+        if tour_id not in self.watched:
+            self.watched[tour_id] = date.today().isoformat()
             self.save()
 
     def best(self, mission_id: str) -> Score | None:
