@@ -47,6 +47,8 @@ STYLES = {
     "d.review": "bold red",
     # ヒントと指摘: 琥珀色
     "d.hint": "yellow",
+    # 見学で、先輩が話していること(まずここを読む、と分かるように。ヒントと同じ琥珀色)
+    "d.senpai": "yellow",
     # 補足: 暗い緑
     "d.muted": "dim",
     "d.placeholder": "dim",

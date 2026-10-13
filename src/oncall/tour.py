@@ -289,6 +289,7 @@ class TourSession:
         step = self.tour.steps[self._index]
         if self._phase in {"before", "running"}:
             body = render_prose("先輩「" + self._text(step.say) + "」", width, indent=indent)
+            body.stylize_before("d.senpai")  # 先輩の話は色を変えて、まずここを読むと分かるようにする
         else:
             body = render_prose(self._text(step.note), width, indent=indent)
         return Text("\n").join([heading, body])

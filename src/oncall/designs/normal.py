@@ -42,6 +42,8 @@ STYLES = {
     "d.review": "bold red",
     # ヒントと指摘
     "d.hint": "yellow",
+    # 見学で、先輩が話していること(まずここを読む、と分かるように。原色ではなく、落ち着いた黄色)
+    "d.senpai": "#e5c07b",
     # 補足(番号、バーの残り、案内の小さな文字)
     "d.muted": "dim",
     "d.placeholder": "dim",
