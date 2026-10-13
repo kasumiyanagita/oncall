@@ -108,10 +108,10 @@ class Zukan:
             return entries[int(query) - 1] if 1 <= int(query) <= len(entries) else None
         return self.catalog.get(query)
 
-    def browse(self, console: Console, screen: Screen) -> bool:
+    def browse(self, console: Console, screen: Screen) -> None:
         """トップページから開く図鑑。コマンド名か番号を打つと詳細を出す。
 
-        Enter か title でトップページに戻る(True)。exit なら終了を選んだことになる(False)。
+        Enter か title でトップページに戻る(終了は、トップページでだけ選べる)。
         """
         shown = "list"  # いま表示しているもの(一覧か、項目の名前)
         screen.clear()
@@ -120,17 +120,16 @@ class Zukan:
             screen.set_status(
                 "[d.key]Enter[/] トップページに戻る",
                 "[d.key]list[/] 一覧をもう一度",
-                "[d.key]exit[/] 終了",
                 title="コマンド図鑑",
             )
             answer = screen.read_line(placeholder="コマンド名か番号を入力(例: grep)", redraw_on_resize=True)
             if answer == RESIZED:  # 端末の大きさが変わった。同じものを、新しい大きさで描き直す
                 answer = shown
-            if answer is None or answer.strip() == "exit":
-                return False
+            if answer is None or answer.strip() in {"", "title"}:
+                return
             answer = answer.strip()
-            if answer in {"", "title"}:
-                return True
+            if answer == "exit":  # 終了は、トップページでだけ選べる
+                continue
             shown = answer
             screen.clear()
             if answer == "list":

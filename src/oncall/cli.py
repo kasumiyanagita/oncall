@@ -311,8 +311,7 @@ def main(argv: list[str] | None = None) -> int:
         # 初めて起動したときだけ、最初にチュートリアルを見せる。途中でやめても、見せたものとして記録する
         if not progress.tutorial_seen:
             progress.mark_tutorial_seen()
-            if not tutorial.run(screen, console, mode):
-                return goodbye()
+            tutorial.run(screen, console, mode)
         page = 0
         while True:
             screen.clear()  # ミッションや図鑑から戻ったときも、トップページだけを表示する
@@ -321,20 +320,16 @@ def main(argv: list[str] | None = None) -> int:
             if choice is None:
                 return goodbye()
             if choice == ZUKAN:
-                if not zukan.browse(console, screen):
-                    return goodbye()
+                zukan.browse(console, screen)
             elif choice == TUTORIAL:
-                if not tutorial.run(screen, console, mode):
-                    return goodbye()
+                tutorial.run(screen, console, mode)
             elif choice == SENPAI:
-                if not tour.room(screen, console, tours, missions, progress, mode, seed=args.seed):
-                    return goodbye()
+                tour.room(screen, console, tours, missions, progress, mode, seed=args.seed)
             elif choice == REDRAW:
                 pass
             elif isinstance(choice, str):  # ページを送る
                 page += 1 if choice == NEXT_PAGE else -1
             else:
                 screen.clear()  # トップページの表示を消して、このミッションの内容だけにする
-                outcome = MissionSession(choice, console, mode, progress, zukan, seed=args.seed, screen=screen).play()
-                if not outcome.title:  # ミッションの途中で exit と打った。ゲームを終了する
-                    return goodbye()
+                # 終了(exit)を選べるのはトップページだけ。ミッションを離れたら、必ずここへ戻る
+                MissionSession(choice, console, mode, progress, zukan, seed=args.seed, screen=screen).play()

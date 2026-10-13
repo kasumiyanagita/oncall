@@ -109,7 +109,6 @@ def load_tours(missions: list[Mission]) -> list[Tour]:
 class Outcome:
     finished: bool  # 最後まで見た
     title: bool = False  # title と打って、トップページに戻ることを選んだ
-    quit: bool = False  # exit と打って、終了を選んだ
 
 
 class TourSession:
@@ -184,7 +183,7 @@ class TourSession:
             self.shell.on_idle = self._on_idle
             self.shell.on_empty_enter = self._advance
             try:
-                stopped = self.shell.run(self._on_command, on_ready=self._refresh)
+                self.shell.run(self._on_command, on_ready=self._refresh)
             finally:
                 self.shell.close()
         finally:
@@ -192,9 +191,7 @@ class TourSession:
                 self.screen.set_task(None)
             procs.kill_session(self.token)
             sandbox.Layout(base).remove()
-        if self._to_title:
-            return Outcome(self._finished, title=True)
-        return Outcome(self._finished, quit=not stopped)
+        return Outcome(self._finished, title=self._to_title)
 
     def _advance(self) -> None:
         """何も打たずに Enter が押された。次へ進める。"""
@@ -244,7 +241,6 @@ class TourSession:
         self.screen.set_status(
             "[d.key]Enter[/] 次へ",
             "[d.key]title[/] トップページに戻る",
-            "[d.key]exit[/] 終了",
             title="[d.heading]見学[/]",
         )
 
@@ -347,22 +343,20 @@ def room(
     progress: Progress,
     mode: str,
     seed: int | None = None,
-) -> bool:
-    """見学の部屋。一覧から選んで見る。トップページに戻るなら True、終了(exit)なら False。"""
+) -> None:
+    """見学の部屋。一覧から選んで見る。title でトップページに戻る(終了は、トップページでだけ選べる)。"""
     while True:
         screen.clear()
         _show_room(console, tours, progress, missions)
         unwatched = next((t for t in tours if t.id not in progress.watched), None)
         choices = [f"[d.key]Enter[/] 見学 {tours.index(unwatched) + 1}"] if unwatched else []
-        screen.set_status(*choices, "[d.key]title[/] トップページに戻る", "[d.key]exit[/] 終了", title="[d.heading]見学[/]")
+        screen.set_status(*choices, "[d.key]title[/] トップページに戻る", title="[d.heading]見学[/]")
         answer = screen.read_line(placeholder="Enter / 番号を入力(例: 1)", redraw_on_resize=True)
         if answer == RESIZED:
             continue
-        if answer is None or answer.strip() == "exit":
-            return False
+        if answer is None or answer.strip().lower() == "title":
+            return
         answer = answer.strip().lower()
-        if answer == "title":
-            return True
         if not answer and unwatched:
             tour = unwatched
         elif answer.isdigit() and 1 <= int(answer) <= len(tours):
@@ -371,7 +365,5 @@ def room(
             continue
         screen.clear()
         outcome = TourSession(tour, console, mode, progress, seed, screen=screen).play()
-        if outcome.quit:
-            return False
         if outcome.title:
-            return True
+            return

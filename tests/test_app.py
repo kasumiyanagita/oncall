@@ -80,11 +80,16 @@ def test_solve_a_mission_and_go_back_to_the_top_page(tmp_path):
     assert '"error-ips"' in (tmp_path / "progress.json").read_text()
 
 
-def test_exit_in_a_mission_quits_the_game(tmp_path):
-    screen, code = run_app(tmp_path, ["\r", "ls\r", "exit\r"])  # Enter だけで、未解決の最初のミッションが始まる
+def test_exit_works_only_on_the_top_page(tmp_path):
+    """ミッション・見学・図鑑・チュートリアルで exit と打っても終了しない。title で戻ってから exit で終了する。"""
+    steps = ["\r", "exit\r", "ls\r", "title\r"]  # Enter だけで、未解決の最初のミッションが始まる
+    steps += ["senpai\r", "exit\r", "1\r", "exit\r", "title\r"]
+    steps += ["zukan\r", "exit\r", "title\r", "tutorial\r", "exit\r", "title\r", "exit\r"]
+    screen, code = run_app(tmp_path, steps)
     assert "Traceback" not in screen
-    assert "access.log" in screen
-    assert screen.count("インシデント一覧") == 1 and "お疲れさまでした" in screen and code == 0
+    assert "access.log" in screen  # exit のあとも、ミッションのシェルは動いている
+    assert screen.count("exit はトップページで使えます") == 2  # ミッションと見学で 1 回ずつ
+    assert screen.count("インシデント一覧") == 5 and screen.count("お疲れさまでした") == 1 and code == 0
 
 
 def test_only_exit_quits_from_the_top_page(tmp_path):
@@ -146,9 +151,3 @@ def test_watch_the_senior_work_to_the_end(tmp_path):
     assert "「数える」のやり方は、インシデント「深夜の 500 祭り」「消えた注文」で使えます" in screen
     assert '"count"' in (tmp_path / "progress.json").read_text().split('"watched"')[1]
     assert screen.count("インシデント一覧") == 2 and code == 0
-
-
-def test_exit_while_watching_quits_the_game(tmp_path):
-    screen, code = run_app(tmp_path, ["senpai\r", "1\r", "\r", "exit\r"])
-    assert "Traceback" not in screen and "お疲れさまでした" in screen
-    assert screen.count("インシデント一覧") == 1 and code == 0

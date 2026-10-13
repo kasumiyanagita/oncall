@@ -154,7 +154,7 @@ def check(home: Path, ctx: dict) -> CheckResult:
             False,
             f"消してはいけないファイルがなくなっています(例: `{lost[0]}`)。"
             "新しいファイルや小さいファイルは稼働中のサービスが使っています。"
-            "元には戻せないので、`exit` で抜けてやり直してください。",
+            "元には戻せないので、`title` でトップページに戻ってやり直してください。",
         )
 
     remaining = [rel for rel in ctx["junk"] if (root / rel).exists()]

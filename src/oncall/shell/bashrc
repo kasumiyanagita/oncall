@@ -43,6 +43,15 @@ mission() { :; }
 hint() { :; }
 zukan() { :; }
 title() { :; }
+# 終了(exit)はトップページでだけ使える。ここでは、シェルを閉じずに案内を出す
+# (スクリプトや ( ) の中の exit は、ふつうに働く)
+exit() {
+    if [ "$BASH_SUBSHELL" -eq 0 ]; then
+        echo "exit はトップページで使えます。title と打つと、トップページに戻ります。"
+    else
+        builtin exit "$@"
+    fi
+}
 check() {
     # ミッションによっては、判定の前にシェルの中で動作確認を行う(作ったスクリプトの実行など)
     if [ -f "$ONCALL_RUN/precheck.bash" ]; then

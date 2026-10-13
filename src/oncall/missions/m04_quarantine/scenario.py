@@ -100,7 +100,7 @@ def check(home: Path, ctx: dict) -> CheckResult:
         return CheckResult(
             False,
             f"`uploads` からなくなり、`quarantine` にもないファイルがあります(例: `{vanished[0]}`)。"
-            "元には戻せないので、`exit` で抜けてやり直してください。",
+            "元には戻せないので、`title` でトップページに戻ってやり直してください。",
         )
 
     if missing:

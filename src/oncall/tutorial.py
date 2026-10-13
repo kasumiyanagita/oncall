@@ -73,8 +73,8 @@ def _pages(mode: str) -> list[tuple[str, list[str | Text]]]:
                 "1. `mission` … 依頼をもう一度表示する\n"
                 "2. `hint` … ヒントを 1 段階開く(減点あり)\n"
                 "3. `zukan` … コマンド図鑑を見る(`zukan grep` で詳細)\n"
-                "4. `title` … トップページに戻る\n"
-                "5. `exit` … ゲームを終了する",
+                "4. `title` … トップページに戻る",
+                "ゲームを終了するときは、トップページで `exit` と打ちます。",
                 "いきなり自分で調べるのが不安なときは、トップページで `senpai` と打つと、先輩が調べるところを見学できます。",
                 f"このチュートリアルは、トップページで `{WORD}` と打つと、いつでも見られます。",
             ],
@@ -112,8 +112,8 @@ def _show(console: Console, title: str, blocks: list[str | Text], number: int, t
     )
 
 
-def run(screen: Screen, console: Console, mode: str) -> bool:
-    """チュートリアルを最初のページから見せる。終了(exit)を選んだら False、それ以外は True。"""
+def run(screen: Screen, console: Console, mode: str) -> None:
+    """チュートリアルを最初のページから見せる。見終えるか title で、トップページに戻る。"""
     pages = _pages(mode)
     index = 0
     while True:
@@ -125,7 +125,6 @@ def run(screen: Screen, console: Console, mode: str) -> bool:
             f"[d.key]Enter[/] {'はじめる' if last else '次へ'}",
             "[d.key]← →[/] ページ",
             "[d.key]title[/] トップページに戻る",
-            "[d.key]exit[/] 終了",
         )
         answer = screen.read_line(
             shortcuts=KEYS,
@@ -135,11 +134,9 @@ def run(screen: Screen, console: Console, mode: str) -> bool:
         if answer == RESIZED:  # 端末の大きさが変わった。同じページを、新しい大きさで描き直す
             continue
         answer = None if answer is None else answer.strip().lower()
-        if answer is None or answer == "exit":
-            return False
-        if answer == "title" or (answer == "" and last):
-            return True
+        if answer is None or answer == "title" or (answer == "" and last):
+            return
         if answer == PREVIOUS:
             index = max(0, index - 1)
-        elif answer in {"", NEXT}:
+        elif answer in {"", NEXT}:  # それ以外(exit など)は、何もしない
             index = min(len(pages) - 1, index + 1)

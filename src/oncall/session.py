@@ -73,7 +73,7 @@ class Outcome:
     """プレイの終わり方。"""
 
     score: Score | None  # 解決していればそのスコア
-    title: bool  # title と打って、トップページに戻ることを選んだ(False なら exit で終了を選んだ)
+    title: bool  # title と打って、トップページに戻ることを選んだ
 
 
 class MissionSession:
@@ -130,7 +130,7 @@ class MissionSession:
     # ---- 進行 ---------------------------------------------------------
 
     def play(self) -> Outcome:
-        """ミッションを開始し、プレイヤーが title か exit を打つまで続ける。"""
+        """ミッションを開始し、プレイヤーが title を打つまで続ける(終了は、トップページでだけ選べる)。"""
         base = Path(tempfile.mkdtemp(prefix="oncall-"))
         try:
             self.layout = sandbox.Layout(base)
@@ -211,8 +211,7 @@ class MissionSession:
             "[d.key]hint[/] ヒント",
             "[d.key]check[/] 判定",
             "[d.key]zukan[/] 図鑑",
-            "[d.key]title[/] 戻る",
-            "[d.key]exit[/] 終了",
+            "[d.key]title[/] トップページに戻る",
         )
 
     def _refresh_task(self) -> None:
@@ -268,7 +267,7 @@ class MissionSession:
             # 画面を分けていないとき(テスト)は、使える合言葉をここに出す
             self.console.print(
                 "[d.key]mission[/] 依頼を再表示   [d.key]hint[/] ヒントを開く(減点あり)   [d.key]check[/] 解決したか判定\n"
-                "[d.key]zukan[/] 図鑑を見る   [d.key]title[/] トップページに戻る   [d.key]exit[/] 終了"
+                "[d.key]zukan[/] 図鑑を見る   [d.key]title[/] トップページに戻る"
             )
         if briefing and self.mode == sandbox.GUARD:
             self.console.print(

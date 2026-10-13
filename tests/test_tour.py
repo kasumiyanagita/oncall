@@ -14,7 +14,7 @@ MISSIONS = load_missions()
 TOURS = {tour.id: tour for tour in load_tours(MISSIONS)}
 SEEDS = range(4)
 # 画面に何も出ないのが正しい手(ファイルへ書く、書き換える、止める)
-SILENT = (" > ", "cp -r ", "sed -i ", "kill ")
+SILENT = (" > ", "cp -r ", "sed -i ", "kill ", "chmod ")
 
 
 def watch(tour_id: str, base, seed: int) -> tuple[dict, list[str]]:
@@ -64,7 +64,7 @@ def tours_without_processes():
 
 
 def test_tours_are_complete():
-    assert [tour.technique for tour in TOURS.values()] == ["数える", "探す", "比べる", "書き換える", "止める"]
+    assert [tour.technique for tour in TOURS.values()] == ["数える", "探す", "比べる", "書き換える", "止める", "まとめる"]
     for tour in TOURS.values():
         assert tour.title and tour.intro and tour.outro and tour.commands and tour.helps
         assert len(tour.steps) >= 5
@@ -120,6 +120,16 @@ def test_rewrite_changes_only_the_log_level(seed, tmp_path):
     changed = [line for line in outputs[5].splitlines() if line[:1] in "<>"]
     assert len(changed) == ctx["debug_count"] * 2 and all("log_level" in line for line in changed)
     assert "debug" not in outputs[6]
+
+
+@pytest.mark.parametrize("seed", SEEDS)
+def test_script_reports_a_missing_directory(seed, tmp_path):
+    ctx, outputs = watch("script", tmp_path, seed)
+    assert int(outputs[0]) == int(outputs[2]) == int(outputs[-1]) == ctx["waiting"]
+    assert int(outputs[3]) == ctx["sent"]
+    assert outputs[4] == "1"  # [ -d nowhere ] は失敗(1)で終わる
+    assert outputs[5].split() == ["0", "0"]  # 直す前は、場所がなくても「0 件、成功」と答えてしまう
+    assert outputs[9] == "2"  # 直したあとは、失敗(2)で終わる
 
 
 @pytest.mark.skipif(MODE != sandbox.ISOLATED, reason="プロセスを扱うので、隔離モードが使える環境でだけ実行する")
